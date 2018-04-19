@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from .lib.rinf_validator.validator import RINFValidator, RINFValidationException
 from .lib.rinf_to_sql import rinf_to_sql
+from .lib.rinf_to_sql.rinf_to_postgres import RINFExtractor,RINFExtractorConfig  
 from .models import Document
 from .forms import DocumentForm
 
@@ -23,14 +24,17 @@ def model_form_upload(request):
 
             if validator.validate(xml):               
                 new_document = form.save()
-                config = rinf_to_sql.init_config(
-                    input_file=request.FILES['document'].open(),
-                    output_dir= os.path.join(settings.RINF_FILE_DIR, str(new_document.id)),
-                    create_dir=True
+                input_file = request.FILES['document'].open()
+                config = RINFExtractorConfig(
+                    'localhost',
+                    '5433',
+                    'postgres',
+                    '12345678',
+                    'xmlexporter'
                 )
-                rinf_to_sql.extract_data(config)
-                return redirect('home')                    
-
+                rinf_extractor = RINFExtractor(config)
+                rinf_extractor.parse_xml(input_file)
+                rinf_extractor.close()                  
             else:
                 with open('debug.xml', 'w') as f:
                     f.write(xml)
